@@ -44,7 +44,7 @@ final class DictationCapture {
         outputURL = nil
         outputFile = nil
         if model != .apple {
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("fispr-\(UUID().uuidString).wav")
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("local-dictation-\(UUID().uuidString).wav")
             outputURL = url
             outputFile = try AVAudioFile(forWriting: url, settings: targetFormat.settings, commonFormat: .pcmFormatInt16, interleaved: true)
         }
@@ -558,7 +558,7 @@ final class MainWindow: NSWindowController {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 560, height: 600))
         root.wantsLayer = true
         root.layer?.backgroundColor = NSColor(calibratedWhite: 0.075, alpha: 1).cgColor
-        let title = NSTextField(labelWithString: "Fispr Wlow")
+        let title = NSTextField(labelWithString: "Local Dictation")
         title.font = .systemFont(ofSize: 30, weight: .semibold)
         title.textColor = .white
         title.frame = NSRect(x: 28, y: 544, width: 500, height: 38)
@@ -613,7 +613,7 @@ final class MainWindow: NSWindowController {
         permissionButton.frame = NSRect(x: 28, y: 14, width: 504, height: 28)
         root.addSubview(permissionButton)
         let window = NSWindow(contentRect: root.bounds, styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Fispr Wlow"
+        window.title = "Local Dictation"
         window.appearance = NSAppearance(named: .darkAqua)
         window.center()
         window.contentView = root
@@ -765,7 +765,7 @@ final class ResultWindow: NSWindowController {
         insertClean.isEnabled = cleanedText != nil
         root.addSubview(insertClean)
         let window = NSWindow(contentRect: root.bounds, styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        window.title = "Fispr Wlow"
+        window.title = "Local Dictation"
         window.appearance = NSAppearance(named: .darkAqua)
         window.contentView = root
         window.center()
@@ -857,8 +857,8 @@ final class FisprApp: NSObject, NSApplicationDelegate {
 
     private func buildMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.title = "fw"
-        statusItem.button?.toolTip = "Fispr Wlow"
+        statusItem.button?.title = "LD"
+        statusItem.button?.toolTip = "Local Dictation"
         rebuildMenu()
     }
 
@@ -872,7 +872,7 @@ final class FisprApp: NSObject, NSApplicationDelegate {
         let settings = NSMenuItem(title: "Settings…", action: #selector(openSettingsMenu), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
-        let quit = NSMenuItem(title: "Quit Fispr Wlow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit Local Dictation", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         menu.addItem(quit)
         statusItem.menu = menu
@@ -924,7 +924,7 @@ final class FisprApp: NSObject, NSApplicationDelegate {
         held = false
         if captureActive {
             captureActive = false
-            statusItem.button?.title = "fw"
+            statusItem.button?.title = "LD"
             capture.stopAndTranscribe()
         } else if let sessionID = activeSessionID {
             invalidateSession(matching: sessionID)
@@ -986,7 +986,7 @@ final class FisprApp: NSObject, NSApplicationDelegate {
         if captureActive { captureActive = false }
         capture.cancel()
         if let oldSession { RuntimeBridge.cancelSession(oldSession) }
-        statusItem?.button?.title = "fw"
+        statusItem?.button?.title = "LD"
     }
 
     private func receivedSpeech(_ result: Result<String, Error>, sessionID: UInt64) {

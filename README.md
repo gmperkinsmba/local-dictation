@@ -1,16 +1,18 @@
-# Fispr Wlow
+# Local Dictation
 
-Fispr Wlow turns a held shortcut into text you can review and insert into the app you chose. Speech and optional cleanup run locally. You can change the models, edit either result, or leave the text untouched.
+Local Dictation turns a held shortcut into text you can review and insert into the app you chose. Speech and optional cleanup run locally. You can change the models, edit either result, or leave the text untouched.
+
+Source: [github.com/gmperkinsmba/local-dictation](https://github.com/gmperkinsmba/local-dictation).
 
 ## First use
 
-1. Build and open `Fispr Wlow.app` using the steps below.
+1. Build and open `Local Dictation.app` using the steps below.
 2. Pick a speech model and a cleanup model. Apple Speech and cleanup Off need no model download.
-3. Select **Select, Install, and Use**. Fispr Wlow downloads only the models you chose.
+3. Select **Select, Install, and Use**. Local Dictation downloads only the models you chose.
 4. Allow microphone access. Allow Accessibility access for the global shortcut.
 5. Hold **Control + Shift + Space** to speak. Release the shortcut, review both text versions, then choose one to insert.
 
-Speech and cleanup run on this Mac. Apple Speech is used only when macOS reports on-device recognition support. Fispr Wlow forces on-device recognition and stops if the Mac cannot provide it. It never sends audio to a network speech service.
+Speech and cleanup run on this Mac. Apple Speech is used only when macOS reports on-device recognition support. Local Dictation forces on-device recognition and stops if the Mac cannot provide it. It never sends audio to a network speech service.
 
 ## Build and run
 
@@ -28,15 +30,17 @@ Build the menu bar app:
 ./build.sh
 ```
 
-The app is written to `dist/Fispr Wlow.app`. Install it in your user Applications folder and open it:
+The app is written to `dist/Local Dictation.app`. Install it in your user Applications folder and open it:
 
 ```sh
 mkdir -p "$HOME/Applications"
-ditto "dist/Fispr Wlow.app" "$HOME/Applications/Fispr Wlow.app"
-open "$HOME/Applications/Fispr Wlow.app"
+ditto "dist/Local Dictation.app" "$HOME/Applications/Local Dictation.app"
+open "$HOME/Applications/Local Dictation.app"
 ```
 
-The app stays in the menu bar; choose Quit Fispr Wlow from its menu to close it.
+The app stays in the menu bar; choose Quit Local Dictation from its menu to close it.
+
+If you have an earlier build, quit Fispr Wlow before opening Local Dictation. The new display name keeps the old bundle identifier and settings, so your choices carry over. Remove the old `~/Applications/Fispr Wlow.app` copy after confirming the new app opens.
 
 Apple Speech works without Python. When you choose an MLX model, the app needs Python 3.12. Install it with Homebrew if needed:
 
@@ -45,6 +49,8 @@ brew install python@3.12
 ```
 
 The app then creates a private Python environment in `~/Library/Application Support/Fispr Wlow/runtime` and installs the hash-checked runtime lock for the model tools you selected. The locks target Apple silicon and Python 3.12. It does not use a Hugging Face login or token. Model files go in `~/Library/Application Support/Fispr Wlow/models`.
+
+**Compatibility:** The app keeps bundle identifier `com.gmperkinsmba.fisprwlow` and the existing `~/Library/Application Support/Fispr Wlow` folder. This preserves saved settings, downloaded models, and any transcript history you chose to keep.
 
 ## Model choices
 
@@ -84,10 +90,10 @@ The checks use synthetic text and audio only. They do not open the microphone. T
 
 **Remove the app and its local data**
 
-Quit Fispr Wlow from its menu, then run:
+Quit Local Dictation from its menu, then run:
 
 ```sh
-rm -r "$HOME/Applications/Fispr Wlow.app"
+rm -r "$HOME/Applications/Local Dictation.app"
 rm -r "$HOME/Library/Application Support/Fispr Wlow"
 ```
 
