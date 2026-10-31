@@ -1,0 +1,17 @@
+# Full MLX speech and cleanup runtime roots for Apple silicon and Python 3.12.
+mlx==0.31.2
+mlx-whisper==0.4.3
+mlx-lm==0.31.2
+transformers==5.22.1
+sentencepiece
+protobuf
+pyyaml
+jinja2
+numpy
+scipy
+numba
+tqdm
+more-itertools
+tiktoken
+huggingface-hub==1.33.0
+soundfile

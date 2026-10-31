@@ -1,0 +1,17 @@
+.build/
+build/
+dist/
+.DS_Store
+*.wav
+*.caf
+*.m4a
+*.log
+__pycache__/
+.venv/
+models/
+runtime/
+secrets/
+*.token
+*.db
+*.sqlite*
+history.json

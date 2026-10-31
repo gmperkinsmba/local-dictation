@@ -1,0 +1,6 @@
+mlx-lm==0.31.2
+transformers==5.22.1
+sentencepiece
+protobuf
+pyyaml
+jinja2
