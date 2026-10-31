@@ -39,6 +39,8 @@ swiftc -parse-as-library -O \
   -o "$APP/Contents/MacOS/LocalDictation"
 cp "$BUILD/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/LocalModelRunner.py" "$APP/Contents/Resources/LocalModelRunner.py"
+cp "$ROOT/ModelIntegrity.py" "$APP/Contents/Resources/ModelIntegrity.py"
+cp "$ROOT/model-integrity-manifest.json" "$APP/Contents/Resources/model-integrity-manifest.json"
 cp "$ROOT/requirements/macos-arm64-py312-speech.lock" "$APP/Contents/Resources/requirements/"
 cp "$ROOT/requirements/macos-arm64-py312-cleanup.lock" "$APP/Contents/Resources/requirements/"
 plutil -lint "$APP/Contents/Info.plist"

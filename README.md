@@ -16,7 +16,7 @@ Speech and cleanup run on this Mac. Apple Speech is used only when macOS reports
 
 ## Build and run
 
-Requirements: macOS 14 or newer, Xcode Command Line Tools, and an Apple silicon Mac for MLX models. Apple Speech can run on other Macs if the installed macOS version supports on-device recognition for the chosen language.
+Requirements: macOS 14 or newer, Xcode Command Line Tools, and `python3` on your PATH for the signed-app installer. MLX models need an Apple silicon Mac. Apple Speech can run on other Macs if macOS supports on-device recognition for the chosen language. The installed app does not need Python for Apple Speech.
 
 Install the compiler tools once:
 
@@ -30,11 +30,10 @@ Build the menu bar app:
 ./build.sh
 ```
 
-The app is written to `dist/Local Dictation.app`. Install it in your user Applications folder and open it:
+The app is written to `dist/Local Dictation.app`. Install the signed, owned bundle, then open it:
 
 ```sh
-mkdir -p "$HOME/Applications"
-ditto "dist/Local Dictation.app" "$HOME/Applications/Local Dictation.app"
+./install.sh
 open "$HOME/Applications/Local Dictation.app"
 ```
 
@@ -66,7 +65,7 @@ Download sizes are measured from pinned model files and exclude Python runtime p
 | Qwen3 0.6B, 4-bit | Light punctuation and filler cleanup | about 335 MB | about 1.2 GB |
 | Qwen3 1.7B, 4-bit | Better wording and paragraph breaks | about 968 MB | about 2 GB |
 
-The Whisper models support English. Each card shows its model-file download and memory estimate before the app installs it. You can change the choices later in Settings. Model files are pinned to revisions in `Sources/ModelCatalog.swift` and `LocalModelRunner.py`. Downloads exclude Python files and remote model code. Runtime dependency versions and wheel hashes are pinned in `requirements/`.
+The Whisper models support English. Each card shows its model-file download and memory estimate before the app installs it. You can change the choices later in Settings. Model files are pinned to revisions in `Sources/ModelCatalog.swift` and `LocalModelRunner.py`. Downloads exclude Python files and remote model code. Runtime dependency versions and wheel hashes are pinned in `requirements/`. Before install completes and before each model load, Local Dictation checks every allowed model file against its SHA-256 manifest. Larger models may take longer to start because their files are checked at load time. This detects changed or incomplete files; it does not encrypt files or prove who published them.
 
 ## Privacy and limits
 
