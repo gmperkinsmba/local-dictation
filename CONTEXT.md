@@ -1,6 +1,6 @@
 # Context
 
-Fispr Wlow turns a held keyboard shortcut into reviewed text in the app that had focus when recording began.
+Local Dictation turns a held keyboard shortcut into reviewed text in the app that had focus when recording began.
 
 First principle: turn speech into clean text locally while users control models, edits, and insertion.
 
@@ -11,6 +11,7 @@ First principle: turn speech into clean text locally while users control models,
 - Dictation preferences are local app settings. Transcript history is off until enabled.
 - A capture is one microphone session, limited to 90 seconds. Apple Speech uses the live stream in memory. Whisper uses a temporary WAV that is deleted after inference or cancellation.
 - Model files live in the user's Application Support folder, outside this repository.
+- Earlier builds used the display name Fispr Wlow. The display name is now Local Dictation. Keep bundle identifier `com.gmperkinsmba.fisprwlow` and the `~/Library/Application Support/Fispr Wlow` data folder unchanged so existing settings, models, and opt-in history remain available.
 
 ## Invariants
 

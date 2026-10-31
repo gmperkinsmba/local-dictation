@@ -1,6 +1,6 @@
 # Third-party software and model notices
 
-Fispr Wlow installs these packages into a private Python environment only when an MLX model is selected:
+Local Dictation installs these packages into a private Python environment only when an MLX model is selected:
 
 - [MLX](https://github.com/ml-explore/mlx), MIT License.
 - [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper), MIT License.
