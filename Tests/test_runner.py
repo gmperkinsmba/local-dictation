@@ -7,6 +7,11 @@ import subprocess
 import sys
 import time
 import unittest
+import hashlib
+import io
+import tempfile
+import json
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("local_model_runner", ROOT / "LocalModelRunner.py")
@@ -20,10 +25,161 @@ class RunnerTests(unittest.TestCase):
             self.assertTrue(repo.startswith("mlx-community/"))
             self.assertEqual(len(revision), 40)
 
+    def test_integrity_manifest_matches_every_supported_repository_revision(self):
+        manifest = json.loads((ROOT / "model-integrity-manifest.json").read_text())
+        expected = {**RUNNER.SPEECH, **RUNNER.CLEANUP}
+        self.assertEqual(set(manifest["models"]), set(expected))
+        for model_id, (repo, revision) in expected.items():
+            entry = manifest["models"][model_id]
+            self.assertEqual((entry["repo"], entry["revision"]), (repo, revision))
+            self.assertTrue(entry["files"])
+            for record in entry["files"].values():
+                self.assertEqual(len(record["sha256"]), 64)
+                self.assertGreater(record["size_bytes"], 0)
+
     def test_models_are_allowlisted_and_no_remote_code_is_allowed(self):
         self.assertEqual(len(RUNNER.SPEECH), 3)
         self.assertEqual(len(RUNNER.CLEANUP), 2)
         self.assertNotIn("*.py", RUNNER.SAFE_MODEL_PATTERNS)
+
+    def test_integrity_verifier_detects_tampering_and_inventory_changes(self):
+        from ModelIntegrity import MAX_MODEL_TREE_ENTRIES, ModelIntegrityError, verify_model
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            root = base / "models"
+            model = root / "mlx-community" / "demo"
+            model.mkdir(parents=True)
+            payload = b"trusted-model"
+            weight = model / "weights.npz"
+            weight.write_bytes(payload)
+            entry = {
+                "repo": "mlx-community/demo",
+                "revision": "1" * 40,
+                "files": {"weights.npz": {"size_bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}},
+            }
+            manifest = base / "manifest.json"
+
+            def write_manifest():
+                manifest.write_text(json.dumps({"schema_version": 1, "models": {"demo": entry}}))
+
+            def verify():
+                return verify_model("demo", "mlx-community/demo", "1" * 40, root, ["*.npz", "*.json"], manifest_path=manifest, home=base / "home")
+
+            write_manifest()
+            self.assertTrue(verify())
+            weight.write_bytes(b"tampered-model")
+            with self.assertRaises(ModelIntegrityError):
+                verify()
+            weight.write_bytes(payload)
+            (model / "extra.json").write_text("{}")
+            with self.assertRaises(ModelIntegrityError):
+                verify()
+            (model / "extra.json").unlink()
+            weight.unlink()
+            with self.assertRaises(ModelIntegrityError):
+                verify()
+            weight.write_bytes(payload)
+            entry["files"]["weights.npz"]["size_bytes"] += 1
+            write_manifest()
+            with self.assertRaises(ModelIntegrityError):
+                verify()
+
+            entry["files"]["weights.npz"]["size_bytes"] = len(payload)
+            write_manifest()
+            for index in range(MAX_MODEL_TREE_ENTRIES + 1):
+                (model / f"ignored-{index}.data").touch()
+            with self.assertRaisesRegex(ModelIntegrityError, "too many entries"):
+                verify()
+
+    def test_integrity_read_stops_when_file_grows_past_manifest_size(self):
+        import ModelIntegrity
+        from ModelIntegrity import ModelIntegrityError
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary) / "weights.npz"
+            payload = b"1234"
+            path.write_bytes(payload)
+            real_fstat = os.fstat
+            calls = 0
+
+            def append_after_initial_stat(fd):
+                nonlocal calls
+                result = real_fstat(fd)
+                if calls == 0:
+                    with path.open("ab") as stream:
+                        stream.write(b"x")
+                calls += 1
+                return result
+
+            with mock.patch.object(ModelIntegrity.os, "fstat", side_effect=append_after_initial_stat), mock.patch.object(ModelIntegrity, "CHUNK_SIZE", 2):
+                with self.assertRaisesRegex(ModelIntegrityError, "grew beyond"):
+                    ModelIntegrity._hash_file_no_follow(path, path.parent, len(payload))
+
+    def test_integrity_verifier_rejects_path_escape_and_accepts_pinned_hub_symlink(self):
+        from ModelIntegrity import ModelIntegrityError, verify_model
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            home = base / "home"
+            root = base / "models"
+            model = root / "mlx-community" / "demo"
+            model.mkdir(parents=True)
+            payload = b"trusted-model"
+            digest = hashlib.sha256(payload).hexdigest()
+            manifest = base / "manifest.json"
+            manifest.write_text(json.dumps({"schema_version": 1, "models": {"demo": {
+                "repo": "mlx-community/demo", "revision": "1" * 40,
+                "files": {"weights.npz": {"size_bytes": len(payload), "sha256": digest}},
+            }}}))
+            outside = base / "outside.npz"
+            outside.write_bytes(payload)
+            (model / "weights.npz").symlink_to(outside)
+            with self.assertRaises(ModelIntegrityError):
+                verify_model("demo", "mlx-community/demo", "1" * 40, root, ["*.npz"], manifest_path=manifest, home=home)
+            (model / "weights.npz").unlink()
+            snapshot = home / ".cache/huggingface/hub/models--mlx-community--demo/snapshots" / ("1" * 40)
+            snapshot.mkdir(parents=True)
+            (snapshot / "weights.npz").write_bytes(payload)
+            (model / "weights.npz").symlink_to(snapshot / "weights.npz")
+            self.assertTrue(verify_model("demo", "mlx-community/demo", "1" * 40, root, ["*.npz"], manifest_path=manifest, home=home))
+
+    def test_install_and_both_inference_paths_require_integrity_verification(self):
+        events = []
+        calls = []
+        fake_hub = type("FakeHub", (), {"snapshot_download": staticmethod(lambda **kwargs: (events.append("download"), calls.append(kwargs)))})
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary) / "models"
+            runtime = pathlib.Path(temporary) / "runtime"
+            python = RUNNER.runtime_python(runtime)
+            python.parent.mkdir(parents=True)
+            python.touch()
+            with mock.patch.dict(sys.modules, {"huggingface_hub": fake_hub}), mock.patch.object(RUNNER, "verify_model", side_effect=lambda *args: events.append("verify")):
+                RUNNER.install_model(runtime, root, "whisper-tiny-en")
+                self.assertEqual(events, ["download", "verify"])
+                self.assertIs(calls[0]["token"], False)
+                self.assertEqual(calls[0]["revision"], RUNNER.SPEECH["whisper-tiny-en"][1])
+                self.assertEqual(calls[0]["repo_id"], RUNNER.SPEECH["whisper-tiny-en"][0])
+
+            audio = pathlib.Path(temporary) / "audio.wav"
+            audio.touch()
+            speech_model_path = root / RUNNER.SPEECH["whisper-tiny-en"][0]
+            speech_model_path.mkdir(parents=True)
+            cleanup_model_path = root / RUNNER.CLEANUP["qwen3-0.6b"][0]
+            cleanup_model_path.mkdir(parents=True)
+            events.clear()
+            fake_speech = type("FakeSpeech", (), {"transcribe": staticmethod(lambda *args, **kwargs: (events.append("speech-load") or {"text": "ok"}))})
+            fake_soundfile = type("FakeSoundFile", (), {"read": staticmethod(lambda *args, **kwargs: ([], 16000))})
+            with mock.patch.dict(sys.modules, {"mlx_whisper": fake_speech, "soundfile": fake_soundfile}), mock.patch.object(RUNNER, "verify_model", side_effect=lambda *args: events.append("verify")):
+                RUNNER.transcribe(runtime, root, "whisper-tiny-en", audio)
+            self.assertEqual(events, ["verify", "speech-load"])
+
+            events.clear()
+            tokenizer = type("FakeTokenizer", (), {"apply_chat_template": staticmethod(lambda *args, **kwargs: "prompt")})()
+            fake_mlx = type("FakeMLX", (), {
+                "load": staticmethod(lambda *args, **kwargs: (events.append("cleanup-load") or (object(), tokenizer))),
+                "generate": staticmethod(lambda *args, **kwargs: "ok"),
+            })
+            with mock.patch.dict(sys.modules, {"mlx_lm": fake_mlx}), mock.patch.object(RUNNER, "verify_model", side_effect=lambda *args: events.append("verify")), mock.patch("sys.stdin", io.StringIO('{"text":"hello"}')):
+                RUNNER.cleanup(runtime, root, "qwen3-0.6b")
+            self.assertEqual(events, ["verify", "cleanup-load"])
 
     def test_unknown_models_are_rejected_before_downloading(self):
         with self.assertRaises(ValueError):

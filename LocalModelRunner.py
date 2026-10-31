@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import signal
+from ModelIntegrity import verify_model
 
 SPEECH = {
     "whisper-tiny-en": ("mlx-community/whisper-tiny.en-mlx-4bit", "29d36db3e9797dd67b210d0ab965522035f82a8b"),
@@ -112,7 +113,8 @@ def install_model(runtime, root, model_id):
         ignore_patterns=["*.py", "*.pyc", "*.bin", "*.pt", "*.pth", "*.onnx", "*.tflite"],
         token=False,
     )
-    say("Model files verified by Hugging Face Hub and ready.")
+    verify_model(model_id, repo, revision, root, SAFE_MODEL_PATTERNS)
+    say("Model files match the pinned integrity manifest and are ready.")
 
 
 def transcribe(runtime, root, model_id, audio_path):
@@ -120,10 +122,11 @@ def transcribe(runtime, root, model_id, audio_path):
         raise ValueError("Unknown speech model choice.")
     import mlx_whisper
     import soundfile as sf
-    repo, _ = SPEECH[model_id]
+    repo, revision = SPEECH[model_id]
     folder = pathlib.Path(root).expanduser() / repo
     if not folder.exists():
         raise RuntimeError("Install the selected speech model in Settings first.")
+    verify_model(model_id, repo, revision, root, SAFE_MODEL_PATTERNS)
     audio, sample_rate = sf.read(audio_path, dtype="float32", always_2d=False)
     if sample_rate != 16000:
         raise RuntimeError("Recorded audio must be 16 kHz PCM.")
@@ -146,10 +149,11 @@ def cleanup(runtime, root, model_id):
     if not text or len(text) > 12_000:
         raise ValueError("Text must contain 1 to 12,000 characters.")
     from mlx_lm import generate, load
-    repo, _ = CLEANUP[model_id]
+    repo, revision = CLEANUP[model_id]
     folder = pathlib.Path(root).expanduser() / repo
     if not folder.exists():
         raise RuntimeError("Install the selected cleanup model in Settings first.")
+    verify_model(model_id, repo, revision, root, SAFE_MODEL_PATTERNS)
     # The allowlist excludes Python and model loaders use their built-in code.
     model, tokenizer = load(str(folder))
     instruction = (
